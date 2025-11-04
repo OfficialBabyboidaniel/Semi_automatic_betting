@@ -169,46 +169,6 @@ def handle_bet_card(driver, bet_card):
         handler.handle(driver, bookmaker_div)
     except Exception as e:
         print(f"Could not determine bookmaker or handle bet: {e}")
-"""
-Semi-automatic betting helper for RebelBetting (example).
-
-How it works (high level):
-- Uses Selenium to open the site and let you log in (recommended: manual login for safety),
-  or optionally perform an automated login using environment variables.
-- Scans a configurable page for bet rows (CSS selectors are placeholders and must be
-  adapted to the live site with your browser's inspector).
-- Presents found bets to you in the console and asks which bets to place.
-- Performs the placement actions (filling forms / clicking buttons) after your confirmation.
-
-IMPORTANT:
-- This is a template and uses placeholder selectors. You MUST inspect the site's DOM and
-  adjust the selectors before using. Automating actions on third-party sites may violate
-  their Terms of Service; you are responsible for compliance and for your account security.
-
-Requirements:
-  pip install selenium webdriver-manager python-dotenv
-
-Usage:
-  - Set REBEL_USERNAME and REBEL_PASSWORD environment variables if you want to enable
-    automated login. Otherwise, the script opens the login page and waits for you to log in
-    manually and press Enter.
-  - Edit SELECTORS below to match the site's current DOM.
-  - Run: python semi_auto_betting.py
-
-"""
-
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, ElementClickInterceptedException
-from webdriver_manager.chrome import ChromeDriverManager
-import os
-import time
-import random
-import dotenv
-
-dotenv.load_dotenv()
 
 # --- CONFIGURE ---
 LOGIN_URL = "https://vb.rebelbetting.com/login"
@@ -237,8 +197,9 @@ def start_driver():
     # recommended: use a regular user profile for convenience (optional)
     # options.add_argument(r"--user-data-dir=C:\Users\YOURNAME\AppData\Local\Google\Chrome\User Data")
 
-    # undetected-chromedriver automatically applies anti-detection patches
-    driver = uc.Chrome(options=options)
+    # Use webdriver-manager to get the correct ChromeDriver version
+    driver_path = ChromeDriverManager().install()
+    driver = uc.Chrome(driver_executable_path=driver_path, options=options)
     driver.implicitly_wait(IMPLICIT_WAIT)
     return driver
 
