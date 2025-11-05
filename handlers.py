@@ -103,16 +103,16 @@ class KambiHandler(BookmakerHandler):
             driver.switch_to.window(driver.window_handles[-1])
             
             # Random delay before handling cookies
-            delay = random.uniform(1, 3)
-            print(f"Waiting {delay:.1f} seconds before handling cookies...")
-            time.sleep(delay)
+            # delay = random.uniform(1, 3)
+            # print(f"Waiting {delay:.1f} seconds before handling cookies...")
+            # time.sleep(delay)
             
             # Handle cookies first
-            if self.handle_cookies(driver):
+            # if self.handle_cookies(driver):
                 # Random delay after cookie handling
-                delay = random.uniform(1, 3)
-                print(f"Waiting {delay:.1f} seconds after cookie handling...")
-                time.sleep(delay)
+                # delay = random.uniform(1, 3)
+                # print(f"Waiting {delay:.1f} seconds after cookie handling...")
+                # time.sleep(delay)
             
             # Click the "Lägg spel" button if it appears
             try:
@@ -140,81 +140,150 @@ class KambiHandler(BookmakerHandler):
                     )
                     if "lagts" in success_element.text.lower():
                         print("✅ BET SUCCESSFULLY PLACED!")
-                        
-                        # Close current tab and return to betting page
-                        driver.close()
-                        driver.switch_to.window(driver.window_handles[0])
-                        print("Returned to betting page")
+                        print("Keeping window open for review...")
                         return True
                 except:
-                    # Check for limit message
+                    # Check for limit message - try multiple approaches
+                    print("Bet placement failed, checking for limit message...")
+                    
+                    # Wait a moment for any overlays to appear
+                    time.sleep(1)
+                    
+                    # Try to find any error/feedback elements
+                    limit_detected = False
+                    max_amount = None
+                    
+                    # Method 1: Look for overlay error
                     try:
-                        limit_element = WebDriverWait(driver, 2).until(
-                            EC.presence_of_element_located((By.CSS_SELECTOR, ".mod-KambiBC-betslip-feedback__title"))
-                        )
-                        limit_text = limit_element.text.lower()
-                        if "högsta" in limit_text or "limit" in limit_text:
-                            print(f"Bet limit detected: {limit_text}")
-                            
-                            # Extract maximum allowed amount
+                        overlay = driver.find_element(By.CSS_SELECTOR, ".mod-KambiBC-betslip__overlay--error")
+                        print("Found error overlay")
+                        limit_detected = True
+                    except:
+                        pass
+                    
+                    # Method 2: Look for feedback elements
+                    try:
+                        feedback_elements = driver.find_elements(By.CSS_SELECTOR, "[class*='feedback']") 
+                        if feedback_elements:
+                            print(f"Found {len(feedback_elements)} feedback elements")
+                            limit_detected = True
+                    except:
+                        pass
+                    
+                    # Method 3: Look for currency spans
+                    try:
+                        currency_spans = driver.find_elements(By.CSS_SELECTOR, "span[class*='currency']")
+                        for span in currency_spans:
+                            text = span.text
+                            if 'kr' in text and any(char.isdigit() for char in text):
+                                max_amount = text.replace(' kr', '').replace(',', '.')
+                                print(f"Found currency amount: {max_amount}")
+                                limit_detected = True
+                                break
+                    except:
+                        pass
+                    
+                    if limit_detected:
+                        print("Limit detected, attempting to handle...")
+                        
+                        # Try to find and click close/back button
+                        close_selectors = [
+                            "button[aria-label*='Stäng']",
+                            "button[aria-label*='tillbaka']", 
+                            "button[aria-label*='Tillbaka']",
+                            ".close", 
+                            "[data-dismiss]"
+                        ]
+                        
+                        for selector in close_selectors:
                             try:
-                                import re
-                                max_amount_match = re.search(r'(\d+(?:[.,]\d+)?)', limit_text)
-                                if max_amount_match:
-                                    max_amount = max_amount_match.group(1).replace(',', '.')
-                                    print(f"Maximum allowed bet: {max_amount}")
-                                    
-                                    # Click back button first
-                                    back_button = WebDriverWait(driver, 3).until(
-                                        EC.element_to_be_clickable((By.CSS_SELECTOR, "button[aria-label='Tillbaka till spelkupongen']"))
-                                    )
-                                    back_button.click()
-                                    
-                                    delay = random.uniform(1, 2)
-                                    time.sleep(delay)
-                                    
-                                    # Find and clear bet amount input field
-                                    bet_input = WebDriverWait(driver, 3).until(
-                                        EC.element_to_be_clickable((By.CSS_SELECTOR, "input[data-testid='betslip-stake-input']"))
-                                    )
+                                close_btn = driver.find_element(By.CSS_SELECTOR, selector)
+                                close_btn.click()
+                                print(f"Clicked close button: {selector}")
+                                break
+                            except:
+                                continue
+                        
+                        time.sleep(2)
+                        
+                        # If we have max_amount, try to place bet with it
+                        if max_amount:
+                            try:
+                                # Try multiple selectors for the bet input field
+                                input_selectors = [
+                                    "input[data-testid='betslip-stake-input']",
+                                    "input[class*='stake-input']",
+                                    "input[type='number']",
+                                    ".mod-KambiBC-betslip__system-stake-input input",
+                                    "input[class*='betslip']"
+                                ]
+                                
+                                bet_input = None
+                                for selector in input_selectors:
+                                    try:
+                                        bet_input = WebDriverWait(driver, 3).until(
+                                            EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+                                        )
+                                        print(f"Found input with selector: {selector}")
+                                        break
+                                    except:
+                                        continue
+                                
+                                if bet_input:
                                     bet_input.clear()
                                     bet_input.send_keys(max_amount)
-                                    print(f"Entered maximum bet amount: {max_amount}")
-                                    
-                                    delay = random.uniform(1, 2)
-                                    time.sleep(delay)
-                                    
-                                    # Click bet button again
-                                    bet_button = WebDriverWait(driver, 3).until(
-                                        EC.element_to_be_clickable((By.CSS_SELECTOR, "button[aria-label='Lägg spel']"))
-                                    )
-                                    bet_button.click()
-                                    print("Clicked bet button with maximum amount")
-                                    
-                                    # Check result again
-                                    delay = random.uniform(2, 3)
-                                    time.sleep(delay)
-                                    
+                                    print(f"Entered max amount: {max_amount}")
+                                    time.sleep(1)
+                                else:
+                                    print("Could not find bet input field")
+                                    return False
+                                
+                                # Try multiple selectors for the bet button
+                                bet_selectors = [
+                                    "button[aria-label='Lägg spel'][data-touch-feedback='true']",
+                                    "button[aria-label='Lägg spel']",
+                                    ".mod-KambiBC-betslip__place-bet-btn",
+                                    "button[class*='place-bet']"
+                                ]
+                                
+                                bet_clicked = False
+                                for selector in bet_selectors:
                                     try:
-                                        success_element = WebDriverWait(driver, 3).until(
-                                            EC.presence_of_element_located((By.CSS_SELECTOR, ".mod-KambiBC-betslip-receipt-header__title"))
-                                        )
-                                        if "lagts" in success_element.text.lower():
-                                            print("✅ BET SUCCESSFULLY PLACED WITH MAX AMOUNT!")
-                                            driver.close()
-                                            driver.switch_to.window(driver.window_handles[0])
+                                        bet_button = driver.find_element(By.CSS_SELECTOR, selector)
+                                        bet_button.click()
+                                        print(f"Clicked bet button with selector: {selector}")
+                                        bet_clicked = True
+                                        break
+                                    except Exception as e:
+                                        print(f"Failed with selector {selector}: {e}")
+                                        continue
+                                
+                                if not bet_clicked:
+                                    print("Could not find bet button with any selector")
+                                
+                                if bet_clicked:
+                                    time.sleep(2)
+                                    
+                                    # Check for success
+                                    try:
+                                        success = driver.find_element(By.CSS_SELECTOR, ".mod-KambiBC-betslip-receipt-header__title")
+                                        if "lagts" in success.text.lower():
+                                            print("✅ BET PLACED WITH MAX AMOUNT!")
+                                            print("Keeping window open for review...")
                                             return True
                                     except:
-                                        print("Bet with max amount may have failed")
-                                        
-                            except Exception as max_bet_e:
-                                print(f"Could not place bet with max amount: {max_bet_e}")
-                        else:
-                            print(f"Bet feedback: {limit_text}")
-                    except Exception as check_e:
-                        print(f"No bet feedback found: {check_e}")
+                                        print("Could not verify bet success")
+                            except Exception as e:
+                                print(f"Could not place bet with max amount: {e}")
+                    else:
+                        print("No limit detected, unknown error")
             except Exception as btn_e:
                 print(f"Could not find or click 'Lägg spel' button: {btn_e}")
+                try:
+                    driver.close()
+                    driver.switch_to.window(driver.window_handles[0])
+                except:
+                    pass
                 return False
                 
         except Exception as e:

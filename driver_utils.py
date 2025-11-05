@@ -12,6 +12,9 @@ from webdriver_manager.chrome import ChromeDriverManager
 from config import LOGIN_URL, HEADLESS, IMPLICIT_WAIT
 from handlers import BOOKMAKER_HANDLERS
 
+# Global variable to store stake size
+GLOBAL_STAKE = None
+
 
 def start_driver():
     """Initialize and return Chrome driver"""
@@ -68,36 +71,62 @@ def automated_login(driver, username, password):
         wait_for_manual_login(driver)
 
 
+def capture_stake_value(driver):
+    """Capture the stake value from the input field"""
+    global GLOBAL_STAKE
+    try:
+        stake_input = driver.find_element(By.ID, "Stake")
+        stake_value = stake_input.get_attribute("value")
+        if stake_value:
+            GLOBAL_STAKE = float(stake_value)
+            print(f"Captured stake value: {GLOBAL_STAKE}")
+        else:
+            print("No stake value found in input field")
+    except Exception as e:
+        print(f"Could not capture stake value: {e}")
+
+
+def get_global_stake():
+    """Get the globally stored stake value"""
+    return GLOBAL_STAKE
+
+
 def open_first_bet_card(driver):
-    """Find and open the first available bet card"""
+    """Find and open the first available bet card or handle already opened card"""
     WebDriverWait(driver, 20).until(lambda d: d.execute_script('return document.readyState') == 'complete')
     print("Page loaded. Waiting 2 extra seconds for scripts...")
     time.sleep(2)
+    
+    # Check if a bet card is already open (modal present)
+    try:
+        modal = driver.find_element(By.CSS_SELECTOR, ".modal.show")
+        if modal:
+            print("Bet card already open, proceeding to handle it...")
+            handle_bet_card(driver, None)
+            return True
+    except:
+        pass
     
     try:
         selector = 'div.card-shadow-hover.d-flex.clickable'
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
         
-        # Re-find elements to avoid stale reference
         bet_cards = driver.find_elements(By.CSS_SELECTOR, selector)
         if not bet_cards:
             print("No bet cards found with selector:", selector)
             return False
             
-        # Get fresh reference and click immediately
         first_card = bet_cards[0]
         driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", first_card)
         time.sleep(random.uniform(0.5, 1.5))
         
-        # Re-find element right before clicking to avoid stale reference
         fresh_cards = driver.find_elements(By.CSS_SELECTOR, selector)
-
-        # add check if valuebet is invalid  --> then remove betcard and go to next one
-
         if fresh_cards:
+            # Capture stake value before clicking
+            capture_stake_value(driver)
             fresh_cards[0].click()
             print("Clicked the first bet card. Dispatching to bookmaker handler...")
-            handle_bet_card(driver, None)  # Pass None since we don't need the element
+            handle_bet_card(driver, None)
             return True
         else:
             print("Bet card disappeared before clicking")
