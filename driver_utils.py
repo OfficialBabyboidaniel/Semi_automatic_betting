@@ -91,6 +91,9 @@ def open_first_bet_card(driver):
         
         # Re-find element right before clicking to avoid stale reference
         fresh_cards = driver.find_elements(By.CSS_SELECTOR, selector)
+
+        # add check if valuebet is invalid  --> then remove betcard and go to next one
+
         if fresh_cards:
             fresh_cards[0].click()
             print("Clicked the first bet card. Dispatching to bookmaker handler...")
